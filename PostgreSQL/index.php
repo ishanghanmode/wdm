@@ -75,13 +75,14 @@
 			   		//Get a movie by id
 			   		if(is_numeric($query))
 			   		{
-			   			echo 'SELECT movies.idmovies, title, year, series.name, genre, keyword, fname, lname, gender FROM movies, series, genres, movies_genres, keywords, movies_keywords, actors, acted_in WHERE movies.idmovies = '.$query.' AND series.idmovies = '.$query.' AND movies_genres.idmovies = '.$query.' AND movies_genres.idgenres = genres.idgenres AND movies_keywords.idmovies = '.$query.' AND movies_keywords.idkeywords = keywords.idkeywords AND acted_in.idmovies = '.$query.' AND acted_in.idactors = actors.idactors';
-			   			$stmt = $db->query('SELECT movies.idmovies, title, year, series.name, genre, keyword, fname, lname, gender FROM movies, series, genres, movies_genres, keywords, movies_keywords, actors, acted_in WHERE movies.idmovies = '.$query.' AND series.idmovies = '.$query.' AND movies_genres.idmovies = '.$query.' AND movies_genres.idgenres = genres.idgenres AND movies_keywords.idmovies = '.$query.' AND movies_keywords.idkeywords = keywords.idkeywords AND acted_in.idmovies = '.$query.' AND acted_in.idactors = actors.idactors');
+			   			$stmt = $db->query('SELECT movies.idmovies, title, year, array_agg(DISTINCT name) as "series name", array_agg(DISTINCT genre) as "genre labels", array_agg(DISTINCT keyword) as "keywords" FROM movies LEFT JOIN series on movies.idmovies = series.idmovies LEFT JOIN movies_genres on movies.idmovies = movies_genres.idmovies LEFT JOIN genres on movies_genres.idgenres = genres.idgenres LEFT JOIN movies_keywords on movies.idmovies = movies_keywords.idmovies LEFT JOIN keywords on movies_keywords.idkeywords = keywords.idkeywords WHERE movies.idmovies = '.$query.' GROUP BY movies.idmovies');
+			   			//$stmt = $db->query('SELECT fname, lname, gender, character, billing_position FROM actors LEFT JOIN acted_in on acted_in.idactors = actors.idactors WHERE idmovies = '.$query.' ORDER BY billing_position');
 			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 			   			
 			   			//Print json format of the data in a nice way on the webpage
 			   			header('Content-Type: application/json');
 			   			echo json_encode($results, JSON_PRETTY_PRINT);
+
 			   		}
 			   		//Get a movie by title or multiple movies by searchquery for title
 			   		else if(!$year)
