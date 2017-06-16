@@ -15,6 +15,12 @@
 				$object = $url[2];
 				$query = $url[3];
 			}
+			else if(count($url) == 5)
+			{
+				$object = $url[2];
+				$query = $url[3];
+				$year = $url[4];	
+			}
 			else
 			{
 				//If there is no query or movies/actors selected in the url
@@ -27,7 +33,14 @@
 				switch ($method) 
 				{
 					case 'GET':
-				    	retrieveData($object, $query);
+				    	if(count($url) == 5)
+				    	{
+				    		retrieveData($object, $query, $year);
+				    	}
+				    	else
+				    	{
+				    		retrieveData($object, $query, false);
+				    	}
 				    	break;
 				  	case 'PUT':
 				    	 break;
@@ -39,7 +52,7 @@
 			}
 
 			//Function that retrieves data from postgresql database and returns json file
-			function retrieveData($object, $query)
+			function retrieveData($object, $query, $year)
 			{
 				//DB settings
 				$host = "127.0.0.1";
@@ -62,17 +75,144 @@
 			   		//Get a movie by id
 			   		if(is_numeric($query))
 			   		{
-			   			$stmt = $db->query('SELECT * FROM '.$object.' WHERE idmovies = '.$query);
+			   			echo 'SELECT movies.idmovies, title, year, series.name, genre, keyword, fname, lname, gender FROM movies, series, genres, movies_genres, keywords, movies_keywords, actors, acted_in WHERE movies.idmovies = '.$query.' AND series.idmovies = '.$query.' AND movies_genres.idmovies = '.$query.' AND movies_genres.idgenres = genres.idgenres AND movies_keywords.idmovies = '.$query.' AND movies_keywords.idkeywords = keywords.idkeywords AND acted_in.idmovies = '.$query.' AND acted_in.idactors = actors.idactors';
+			   			$stmt = $db->query('SELECT movies.idmovies, title, year, series.name, genre, keyword, fname, lname, gender FROM movies, series, genres, movies_genres, keywords, movies_keywords, actors, acted_in WHERE movies.idmovies = '.$query.' AND series.idmovies = '.$query.' AND movies_genres.idmovies = '.$query.' AND movies_genres.idgenres = genres.idgenres AND movies_keywords.idmovies = '.$query.' AND movies_keywords.idkeywords = keywords.idkeywords AND acted_in.idmovies = '.$query.' AND acted_in.idactors = actors.idactors');
 			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-			   			echo json_encode($results);
+			   			
+			   			//Print json format of the data in a nice way on the webpage
+			   			header('Content-Type: application/json');
+			   			echo json_encode($results, JSON_PRETTY_PRINT);
 			   		}
 			   		//Get a movie by title or multiple movies by searchquery for title
-			   		else
+			   		else if(!$year)
 			   		{
 			   			$query = str_replace("%20", " ", $query);
 			   			$stmt = $db->query("SELECT * FROM ".$object." WHERE type = 3 AND title ILIKE '%".$query."%'");
 			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-			   			echo json_encode($results);
+			   			
+			   			//Print json format of the data in a nice way on the webpage
+			   			header('Content-Type: application/json');
+			   			echo json_encode($results, JSON_PRETTY_PRINT);
+			   		}
+			   		//Get a movie by title or multiple movies by searchquery for title and a given year
+			   		else
+			   		{
+			   			$query = str_replace("%20", " ", $query);
+			   			echo "SELECT * FROM ".$object." WHERE type = 3 AND year = ".$year." AND title ILIKE '%".$query."%'";
+			   			$stmt = $db->query("SELECT * FROM ".$object." WHERE type = 3 AND year = ".$year." AND title ILIKE '%".$query."%'");
+			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+			   			
+			   			//Print json format of the data in a nice way on the webpage
+			   			header('Content-Type: application/json');
+			   			echo json_encode($results, JSON_PRETTY_PRINT);
+			   		}
+			   	}
+			   	//Search for actors
+			   	else if($object == "actors")
+			   	{
+			   		//Get a actor by id, returns first name, last name, gender, movies title, movies year
+			   		if(is_numeric($query))
+			   		{
+			   			$stmt = $db->query('SELECT fname, lname, gender, title, year FROM actors, acted_in, movies WHERE actors.idactors = '.$query.'AND acted_in.idactors = actors.idactors AND movies.idmovies = acted_in.idmovies ORDER BY year');
+			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+			   			
+			   			//Print json format of the data in a nice way on the webpage
+			   			header('Content-Type: application/json');
+			   			echo json_encode($results, JSON_PRETTY_PRINT);
+			   		}
+			   		//Get a actor by title or multiple actors by searchquery for title, returns first name, last name, gender, movies title, movies year
+			   		else
+			   		{
+			   			$query = str_replace("%20", " ", $query);
+			   			$stmt = $db->query("SELECT fname, lname, gender, title, year FROM actors, acted_in, movies WHERE (lname ILIKE '%".$query."%' OR fname ILIKE '%".$query."%') AND acted_in.idactors = actors.idactors AND movies.idmovies = acted_in.idmovies ORDER BY year");
+			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+			   			
+			   			//Print json format of the data in a nice way on the webpage
+			   			header('Content-Type: application/json');
+			   			echo json_encode($results, JSON_PRETTY_PRINT);
+			   		}
+			   	}
+			   	//Get short statistics for actors
+			   	else if($object == "actorstatistics")
+			   	{
+			   		//Get number of movies played for a actor by id, returns first name, last name, number of movies played
+			   		if(is_numeric($query))
+			   		{
+			   			$stmt = $db->query('SELECT fname, lname, COUNT(DISTINCT idmovies) as "number of movies" FROM actors, acted_in WHERE actors.idactors = acted_in.idactors AND actors.idactors = '.$query.' GROUP BY fname, lname');
+			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+			   			
+			   			//Print json format of the data in a nice way on the webpage
+			   			header('Content-Type: application/json');
+			   			echo json_encode($results, JSON_PRETTY_PRINT);
+			   		}
+			   		//Get number of movies played for actors, returns first name, last name, number of movies played
+			   		else
+			   		{
+			   			$query = str_replace("%20", " ", $query);
+			   			$columnname = '"number of movies"';
+			   			$stmt = $db->query("SELECT fname, lname, COUNT(DISTINCT idmovies) as ".$columnname." FROM actors, acted_in WHERE actors.idactors = acted_in.idactors AND (lname ILIKE '%".$query."%' OR fname ILIKE '%".$query."%') GROUP BY fname, lname");
+			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+			   			
+			   			//Print json format of the data in a nice way on the webpage
+			   			header('Content-Type: application/json');
+			   			echo json_encode($results, JSON_PRETTY_PRINT);
+			   		}
+			   	}
+			   	//Get movies by genre and year
+			   	else if($object == "genre")
+			   	{
+			   		//Makes genre start with a capital
+			   		$query = ucfirst($query);
+			   		//Get all movies with actors given a genre and a begin and end year
+			   		if (strpos($year, "-")) 
+			   		{
+			   			$yeararray = explode("-", $year);
+			   			$beginyear = $yeararray[0]; 
+			   			$endyear = $yeararray[1];
+			   			$stmt = $db->query("SELECT movies.idmovies, title, year FROM movies, genres, movies_genres WHERE genres.idgenres = movies_genres.idgenres AND movies_genres.idmovies = movies.idmovies AND genre = '".$query."' AND year >= ".$beginyear." AND year <= ".$endyear." ORDER BY year, title");
+			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+			   			
+			   			//Print json format of the data in a nice way on the webpage
+			   			header('Content-Type: application/json');
+			   			echo json_encode($results, JSON_PRETTY_PRINT);
+			   		}
+			   		//Get all movies with actors given a genre and a year
+			   		else
+			   		{
+			   			$stmt = $db->query("SELECT movies.idmovies, title, year FROM movies, genres, movies_genres WHERE genres.idgenres = movies_genres.idgenres AND movies_genres.idmovies = movies.idmovies AND genre = '".$query."' AND year = ".$year." ORDER BY year, title");
+			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+			   			
+			   			//Print json format of the data in a nice way on the webpage
+			   			header('Content-Type: application/json');
+			   			echo json_encode($results, JSON_PRETTY_PRINT);
+			   		}
+			   	}
+			   	//Get genre statistics
+			   	else if($object == "genrestatistics")
+			   	{
+			   		$columnname = '"number of movies"';
+			   		//Get all movies with actors given a genre and a begin and end year
+			   		if (strpos($query, "-")) 
+			   		{
+			   			$yeararray = explode("-", $query);
+			   			$beginyear = $yeararray[0]; 
+			   			$endyear = $yeararray[1];
+			   			$stmt = $db->query("SELECT genre, COUNT(movies_genres.idmovies) as ".$columnname." FROM genres, movies_genres, movies WHERE genres.idgenres = movies_genres.idgenres AND movies_genres.idmovies = movies.idmovies AND year >= ".$beginyear." AND year <= ".$endyear." GROUP BY genre");
+			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+			   			
+			   			//Print json format of the data in a nice way on the webpage
+			   			header('Content-Type: application/json');
+			   			echo json_encode($results, JSON_PRETTY_PRINT);
+			   		}
+			   		//Get all movies with actors given a genre and a year
+			   		else
+			   		{
+			   			$stmt = $db->query("SELECT genre, COUNT(movies_genres.idmovies) as ".$columnname." FROM genres, movies_genres, movies WHERE genres.idgenres = movies_genres.idgenres AND movies_genres.idmovies = movies.idmovies AND year = ".$query." GROUP BY genre");
+			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+			   			
+			   			//Print json format of the data in a nice way on the webpage
+			   			header('Content-Type: application/json');
+			   			echo json_encode($results, JSON_PRETTY_PRINT);
 			   		}
 			   	}
 			}
