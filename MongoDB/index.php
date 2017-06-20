@@ -5,7 +5,9 @@
 	</head>
 	<body>
 		<?php
-   			$error = false;
+   			// This path should point to Composer's autoloader
+			require 'vendor/autoload.php';
+			$error = false;
 			//Get http method
 			$method = $_SERVER['REQUEST_METHOD'];
 			//Get url
@@ -54,96 +56,75 @@
 			//Function that retrieves data from postgresql database and returns json file
 			function retrieveData($object, $query, $year)
 			{
-	   			//Connect to MongoDB
-			   	$m = new MongoDB\Driver\Manager();
+	   			
+
+				//Connect to MongoDB
+			   	$client = new MongoDB\Client("mongodb://localhost:27017");
 				
-			   	if($m)
+			   	if($client)
 			   	{
-			   		echo "Connection to database successfully";
+			   		//echo "Connection to database successfully";
 			   	}
-
-			   	$dbname = $m->selectDB('IMDB');
-
-				//Search for movies
+			   	
+			   	$db = $client->web;
+			   	
+			   	//Search for movies
 			   	if($object == "movies")
 			   	{
+			   		$collection = $db->movie;
 			   		//Get a movie by id
 			   		if(is_numeric($query))
 			   		{
-			   			//Get all movie information, except for actors
-			   			$stmt = $db->query('SELECT movies.idmovies, title, year, array_agg(DISTINCT name) as "series name", array_agg(DISTINCT genre) as "genre labels", array_agg(DISTINCT keyword) as "keywords" FROM movies LEFT JOIN series on movies.idmovies = series.idmovies LEFT JOIN movies_genres on movies.idmovies = movies_genres.idmovies LEFT JOIN genres on movies_genres.idgenres = genres.idgenres LEFT JOIN movies_keywords on movies.idmovies = movies_keywords.idmovies LEFT JOIN keywords on movies_keywords.idkeywords = keywords.idkeywords WHERE type = 3 AND movies.idmovies = '.$query.' GROUP BY movies.idmovies');
-			   			//Get all actors information of the movie
-			   			$stmt2 = $db->query('SELECT fname, lname, gender, character, billing_position FROM actors LEFT JOIN acted_in on acted_in.idactors = actors.idactors WHERE idmovies = '.$query.' ORDER BY billing_position');
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-			   			$actors = $stmt2->fetchAll(PDO::FETCH_ASSOC);
-			   			//Add actors information to the movie information arrray
-			   			$results[0]['actors'] = $actors;
-			   			
-			   			//Print json format of the data in a nice way on the webpage
-			   			header('Content-Type: application/json');
-			   			echo json_encode($results, JSON_PRETTY_PRINT);
+			   			//$result = $collection->find(array('idmovies' => 1));
+					   	$result = $collection->find(array('idmovies'=>intval($query),'type'=>3));
+					   	//echo $result;
+
+						
+						header('Content-Type: application/json');
+						foreach ($result as $id => $value) {  
+		 					echo json_encode($value, JSON_PRETTY_PRINT);  
+						}
 			   		}
 			   		//Get a movie by title or multiple movies by searchquery for title
 			   		else if(!$year)
 			   		{
 			   			$query = str_replace("%20", " ", $query);
-			   			$query = "'%".$query."%'";
-			   			//Get all movies information
-			   			$stmt = $db->query('SELECT movies.idmovies, title, year, array_agg(DISTINCT name) as "series name", array_agg(DISTINCT genre) as "genre labels", array_agg(DISTINCT keyword) as "keywords" FROM movies LEFT JOIN series on movies.idmovies = series.idmovies LEFT JOIN movies_genres on movies.idmovies = movies_genres.idmovies LEFT JOIN genres on movies_genres.idgenres = genres.idgenres LEFT JOIN movies_keywords on movies.idmovies = movies_keywords.idmovies LEFT JOIN keywords on movies_keywords.idkeywords = keywords.idkeywords WHERE type = 3 AND title ILIKE'.$query.' GROUP BY movies.idmovies');
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-			   			//For each movie find the actors information and add that to the array
-			   			for($i=0; $i<count($results); $i++)
-			   			{
-			   				$idmovie = $results[$i]['idmovies'];
-			   				$stmt2 = $db->query('SELECT fname, lname, gender, character, billing_position FROM actors LEFT JOIN acted_in on acted_in.idactors = actors.idactors WHERE idmovies = '.$idmovie.' ORDER BY billing_position');
-			   				$actors = $stmt2->fetchAll(PDO::FETCH_ASSOC);
-			   				$results[$i]['actors'] = $actors; 
-			   			}
+			   			$where = array("title" => new MongoDB\BSON\Regex($query),'year'=>array('$exists'=>true,'$gte'=>1935,'$lte'=>1985));  
+						$result = $collection->find($where);
+						//Get all movies information
 			   			
-			   			//Print json format of the data in a nice way on the webpage
 			   			header('Content-Type: application/json');
-			   			echo json_encode($results, JSON_PRETTY_PRINT);
+			   			foreach ($result as $id => $value) {  
+		 					echo json_encode($value, JSON_PRETTY_PRINT);  
+						}
+			   			
 			   		}
 			   		//Get a movie by title or multiple movies by searchquery for title and a given year
 			   		else
 			   		{
 			   			$query = str_replace("%20", " ", $query);
-			   			$query = "'%".$query."%'";
-			   			//Get all movies information
-			   			$stmt = $db->query('SELECT movies.idmovies, title, year, array_agg(DISTINCT name) as "series name", array_agg(DISTINCT genre) as "genre labels", array_agg(DISTINCT keyword) as "keywords" FROM movies LEFT JOIN series on movies.idmovies = series.idmovies LEFT JOIN movies_genres on movies.idmovies = movies_genres.idmovies LEFT JOIN genres on movies_genres.idgenres = genres.idgenres LEFT JOIN movies_keywords on movies.idmovies = movies_keywords.idmovies LEFT JOIN keywords on movies_keywords.idkeywords = keywords.idkeywords WHERE type = 3 AND year = '.$year.'AND title ILIKE'.$query.' GROUP BY movies.idmovies');
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-			   			//For each movie find the actors information and add that to the array
-			   			for($i=0; $i<count($results); $i++)
-			   			{
-			   				$idmovie = $results[$i]['idmovies'];
-			   				$stmt2 = $db->query('SELECT fname, lname, gender, character, billing_position FROM actors LEFT JOIN acted_in on acted_in.idactors = actors.idactors WHERE idmovies = '.$idmovie.' ORDER BY billing_position');
-			   				$actors = $stmt2->fetchAll(PDO::FETCH_ASSOC);
-			   				$results[$i]['actors'] = $actors; 
-			   			}
+			   			$where = array("title" => new MongoDB\BSON\Regex($query),'year'=>array('$exists'=>true,'$gte'=>intval($year),'$lte'=>intval($year)));  
+						$result = $collection->find($where);
+						//Get all movies information
 			   			
-			   			//Print json format of the data in a nice way on the webpage
 			   			header('Content-Type: application/json');
-			   			echo json_encode($results, JSON_PRETTY_PRINT);
+			   			foreach ($result as $id => $value) {  
+		 					echo json_encode($value, JSON_PRETTY_PRINT);  
+						}
 			   		}
 			   	}
 			   	//Search for actors
 			   	else if($object == "actors")
 			   	{
+			   		$collection = $db->actor;
 			   		//Get a actor by id, returns first name, last name, gender, movies title, movies year
 			   		if(is_numeric($query))
 			   		{
-			   			//Get the actor information
-			   			$stmt = $db->query('SELECT fname, lname, gender FROM actors WHERE actors.idactors = '.$query);
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-						//Get the movies information that the actor played in
-						$stmt2 = $db->query('SELECT DISTINCT title, year FROM acted_in, movies WHERE idactors = '.$query.'AND type = 3 AND movies.idmovies = acted_in.idmovies ORDER BY year');
-			   			$results2 = $stmt2->fetchAll(PDO::FETCH_ASSOC);
-			   			//Add the movies information to the results array
-			   			$results[0]['movies'] = $results2; 
-
-			   			//Print json format of the data in a nice way on the webpage
+			   			$result = $collection->find(array("idactors"=>intval($query)));
 			   			header('Content-Type: application/json');
-			   			echo json_encode($results, JSON_PRETTY_PRINT);
+			   			foreach ($result as $id => $value) {  
+		 					echo json_encode($value, JSON_PRETTY_PRINT);  
+						}
 			   		}
 			   		//Get a actor by title or multiple actors by searchquery for title, returns first name, last name, gender, movies title, movies year
 			   		else
@@ -153,69 +134,97 @@
 			   			//If two names are given, use the first one as fname and the last one as lname
 			   			if(count($splitquery) == 2)
 			   			{
-							$stmt = $db->query("SELECT fname, lname, gender, idactors FROM actors WHERE (lname ILIKE '%".$splitquery[1]."%' AND fname ILIKE '%".$splitquery[0]."%')");
+			   				$param = array('$and'=>array(array("lname" => new MongoDB\BSON\Regex($splitquery[1])),array("fname" => new MongoDB\BSON\Regex($splitquery[0]))));  
+							$result = $collection->find($param);
+							header('Content-Type: application/json');
+				   			foreach ($result as $id => $value) {  
+			 					echo json_encode($value, JSON_PRETTY_PRINT);  
+							}	
 			   			}
 			   			//If less or more then 2 names are given, use them for both fname and lname
 			   			else
 			   			{
-			   				$stmt = $db->query("SELECT fname, lname, gender, idactors FROM actors WHERE (lname ILIKE '%".$query."%' OR fname ILIKE '%".$query."%')");	
+			   				$param = array('$or'=>array(array("lname" => new MongoDB\BSON\Regex($query)),array("fname" => new MongoDB\BSON\Regex($query))));  
+							$result = $collection->find($param);
+							header('Content-Type: application/json');
+				   			foreach ($result as $id => $value) {  
+			 					echo json_encode($value, JSON_PRETTY_PRINT);  
+							}	
 			   			}
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-			   			//For each actor find the movies information and add that to the array
-			   			for($i=0; $i<count($results); $i++)
-			   			{
-			   				$idactor = $results[$i]['idactors'];
-			   				$stmt2 = $db->query('SELECT DISTINCT title, year FROM acted_in, movies WHERE idactors = '.$idactor.'AND type = 3 AND movies.idmovies = acted_in.idmovies ORDER BY year');
-			   				$movies = $stmt2->fetchAll(PDO::FETCH_ASSOC);
-			   				$results[$i]['movies'] = $movies;
-			   				//Remove idactors from result
-			   				unset($results[$i]['idactors']); 
-			   			}
-			   			
-			   			//Print json format of the data in a nice way on the webpage
-			   			header('Content-Type: application/json');
-			   			echo json_encode($results, JSON_PRETTY_PRINT);
 			   		}
 			   	}
 			   	//Get short statistics for actors
 			   	else if($object == "actorstatistics")
 			   	{
+			   		$collection = $db->actor;
 			   		//Get number of movies played for a actor by id, returns first name, last name, number of movies played
 			   		if(is_numeric($query))
 			   		{
-			   			$stmt = $db->query('SELECT fname, lname, COUNT(DISTINCT acted_in.idmovies) as "number of movies" FROM actors, acted_in, movies WHERE actors.idactors = acted_in.idactors AND actors.idactors = '.$query.' AND acted_in.idmovies = movies.idmovies AND type = 3 GROUP BY fname, lname');
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-			   			
-			   			//Print json format of the data in a nice way on the webpage
+			   			$cond = array(  
+						    array(  
+						        '$match' => array("idactors"=>intval($query)),  
+						    ),  
+						    array(  
+						        '$project' => array( 'count' =>array('$size'=>array('$movies'))
+						          
+						        )
+						    ) 
+						); 
+						$result = $collection->aggregate($cond);
 			   			header('Content-Type: application/json');
-			   			echo json_encode($results, JSON_PRETTY_PRINT);
+			   			foreach ($result as $id => $value) {  
+		 					echo json_encode($value, JSON_PRETTY_PRINT);  
+						}	
 			   		}
 			   		//Get number of movies played for actors, returns first name, last name, number of movies played
 			   		else
 			   		{
 			   			$query = str_replace("%20", " ", $query);
-			   			$columnname = '"number of movies"';
 			   			$splitquery = explode(" ", $query);
 			   			//If two names are given, use the first one as fname and the last one as lname
 			   			if(count($splitquery) == 2)
 			   			{
-			   				$stmt = $db->query("SELECT fname, lname, COUNT(DISTINCT acted_in.idmovies) as ".$columnname." FROM actors, acted_in, movies WHERE actors.idactors = acted_in.idactors AND (lname ILIKE '%".$splitquery[1]."%' AND fname ILIKE '%".$splitquery[0]."%') AND acted_in.idmovies = movies.idmovies AND type = 3 GROUP BY fname, lname");
+			   				$cond = array(  
+							    array(  
+							        '$match' =>  array('$and'=>array(array("lname" => new MongoDB\BSON\Regex($splitquery[1])),array("fname" => new MongoDB\BSON\Regex($splitquery[0])))),  
+							    ),  
+							    array(  
+							         '$project' => array( 'count' =>array('$size'=>array('ifNull'=>array('$movies',[])))
+							          
+							        )
+							    ) 
+							); 
+							$result = $collection->aggregate($cond);
+				   			header('Content-Type: application/json');
+				   			foreach ($result as $id => $value) {  
+			 					echo json_encode($value, JSON_PRETTY_PRINT);  
+							}
 			   			}
 			   			//If less or more then 2 names are given, use them for both fname and lname
 			   			else
 			   			{
-			   				$stmt = $db->query("SELECT fname, lname, COUNT(DISTINCT acted_in.idmovies) as ".$columnname." FROM actors, acted_in, movies WHERE actors.idactors = acted_in.idactors AND (lname ILIKE '%".$query."%' OR fname ILIKE '%".$query."%') AND acted_in.idmovies = movies.idmovies AND type = 3 GROUP BY fname, lname");
+			   				$cond = array(  
+							    array(  
+							        '$match' =>  array('$or'=>array(array("lname" => new MongoDB\BSON\Regex($query)),array("fname" => new MongoDB\BSON\Regex($query)))),  
+							    ),  
+							    array(  
+							          '$project' => array( 'count' =>array('$size'=>array('ifNull'=>array('$movies',false))))
+							          
+							        )
+							     
+							); 
+							$result = $collection->aggregate($cond);
+				   			header('Content-Type: application/json');
+				   			foreach ($result as $id => $value) {  
+			 					echo json_encode($value, JSON_PRETTY_PRINT);  
+							}
 			   			}
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-			   			
-			   			//Print json format of the data in a nice way on the webpage
-			   			header('Content-Type: application/json');
-			   			echo json_encode($results, JSON_PRETTY_PRINT);
 			   		}
 			   	}
 			   	//Get movies by genre and year
 			   	else if($object == "genre")
 			   	{
+			   		$collection = $db->movie;
 			   		//Makes genre start with a capital
 			   		$query = ucfirst($query);
 			   		//Get all movies with actors given a genre and a begin and end year
@@ -234,12 +243,23 @@
 			   		//Get all movies with actors given a genre and a year
 			   		else
 			   		{
-			   			$stmt = $db->query("SELECT movies.idmovies, title, year FROM movies, genres, movies_genres WHERE genres.idgenres = movies_genres.idgenres AND movies_genres.idmovies = movies.idmovies AND type = 3 AND genre = '".$query."' AND year = ".$year." ORDER BY year, title");
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-			   			
-			   			//Print json format of the data in a nice way on the webpage
+			   			$cond = array(  
+						    array(  
+						        '$match' => array("genre" => new MongoDB\BSON\Regex($query),'year'=>array('$exists'=>true,'$gte'=>intval($year),'$lte'=>intval($year)))  
+						    ),  
+						    array(  
+						        '$project' => array("_id"=>0,"keyword" =>0,"actors" =>0,"series_name" =>0,"type" =>0,"genres" =>0)
+						          
+						        ),
+						array('$sort'=>array("year"=>1,"title"=>1))
+						    
+						);                        
+						$result = $collection->aggregate($cond);
+						//Print json format of the data in a nice way on the webpage
 			   			header('Content-Type: application/json');
-			   			echo json_encode($results, JSON_PRETTY_PRINT);
+			   			foreach ($result as $id => $value) {  
+		 					echo json_encode($value, JSON_PRETTY_PRINT);  
+						}
 			   		}
 			   	}
 			   	//Get genre statistics
@@ -270,8 +290,7 @@
 			   			echo json_encode($results, JSON_PRETTY_PRINT);
 			   		}
 			   	}
-			}
-			
+			}			
 		?>
 	</body>
 </html>
