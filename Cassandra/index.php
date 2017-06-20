@@ -72,15 +72,24 @@
 			   		//Get a movie by id
 			   		if(is_numeric($query))
 			   		{
-			   			//Get all movie information, except for actors
-			   			$stmt = $db->query('SELECT movies.idmovies, title, year, array_agg(DISTINCT name) as "series name", array_agg(DISTINCT genre) as "genre labels", array_agg(DISTINCT keyword) as "keywords" FROM movies LEFT JOIN series on movies.idmovies = series.idmovies LEFT JOIN movies_genres on movies.idmovies = movies_genres.idmovies LEFT JOIN genres on movies_genres.idgenres = genres.idgenres LEFT JOIN movies_keywords on movies.idmovies = movies_keywords.idmovies LEFT JOIN keywords on movies_keywords.idkeywords = keywords.idkeywords WHERE type = 3 AND movies.idmovies = '.$query.' GROUP BY movies.idmovies');
-			   			//Get all actors information of the movie
-			   			$stmt2 = $db->query('SELECT fname, lname, gender, character, billing_position FROM actors LEFT JOIN acted_in on acted_in.idactors = actors.idactors WHERE idmovies = '.$query.' ORDER BY billing_position');
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-			   			$actors = $stmt2->fetchAll(PDO::FETCH_ASSOC);
-			   			//Add actors information to the movie information arrray
-			   			$results[0]['actors'] = $actors;
-			   			
+			   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT idmovies, title, year, keywords from sc1_a_table where idmovies = ".$query." allow filtering"));
+			   			$result2 = $session->execute(new Cassandra\SimpleStatement("SELECT idmovies, title, year, genres from sc1_b_table where idmovies = ".$query." allow filtering"));
+			   			$results = [];
+			   			//$i = 0;
+			   			foreach($result as $row)
+			   			{
+			   				$results[0]['idmovies'] = $row['idmovies'];
+			   				$results[0]['title'] = $row['title'];
+			   				$results[0]['year'] = $row['year'];
+			   				$results[0]['keywords'] = $row['keywords'];
+			   				break;
+			   			}
+			   			foreach($result2 as $row)
+			   			{
+			   				$results[0]['genres'] = $row['genres'];
+			   				break;
+			   			}
+			   						   			
 			   			//Print json format of the data in a nice way on the webpage
 			   			header('Content-Type: application/json');
 			   			echo json_encode($results, JSON_PRETTY_PRINT);
@@ -89,19 +98,24 @@
 			   		else if(!$year)
 			   		{
 			   			$query = str_replace("%20", " ", $query);
-			   			$query = "'%".$query."%'";
-			   			//Get all movies information
-			   			$stmt = $db->query('SELECT movies.idmovies, title, year, array_agg(DISTINCT name) as "series name", array_agg(DISTINCT genre) as "genre labels", array_agg(DISTINCT keyword) as "keywords" FROM movies LEFT JOIN series on movies.idmovies = series.idmovies LEFT JOIN movies_genres on movies.idmovies = movies_genres.idmovies LEFT JOIN genres on movies_genres.idgenres = genres.idgenres LEFT JOIN movies_keywords on movies.idmovies = movies_keywords.idmovies LEFT JOIN keywords on movies_keywords.idkeywords = keywords.idkeywords WHERE type = 3 AND title ILIKE'.$query.' GROUP BY movies.idmovies');
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-			   			//For each movie find the actors information and add that to the array
-			   			for($i=0; $i<count($results); $i++)
+			   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT idmovies, title, year, keywords FROM sc1_a_table WHERE title = '".$query."' allow filtering"));
+			   			$result2 = $session->execute(new Cassandra\SimpleStatement("SELECT idmovies, title, year, genres FroM sc1_b_table WHERE title = '".$query."' allow filtering"));
+			   			$results = [];
+			   			//$i = 0;
+			   			foreach($result as $row)
 			   			{
-			   				$idmovie = $results[$i]['idmovies'];
-			   				$stmt2 = $db->query('SELECT fname, lname, gender, character, billing_position FROM actors LEFT JOIN acted_in on acted_in.idactors = actors.idactors WHERE idmovies = '.$idmovie.' ORDER BY billing_position');
-			   				$actors = $stmt2->fetchAll(PDO::FETCH_ASSOC);
-			   				$results[$i]['actors'] = $actors; 
+			   				$results[0]['idmovies'] = $row['idmovies'];
+			   				$results[0]['title'] = $row['title'];
+			   				$results[0]['year'] = $row['year'];
+			   				$results[0]['keywords'] = $row['keywords'];
+			   				break;
 			   			}
-			   			
+			   			foreach($result2 as $row)
+			   			{
+			   				$results[0]['genres'] = $row['genres'];
+			   				break;
+			   			}
+			   						   			
 			   			//Print json format of the data in a nice way on the webpage
 			   			header('Content-Type: application/json');
 			   			echo json_encode($results, JSON_PRETTY_PRINT);
@@ -110,19 +124,24 @@
 			   		else
 			   		{
 			   			$query = str_replace("%20", " ", $query);
-			   			$query = "'%".$query."%'";
-			   			//Get all movies information
-			   			$stmt = $db->query('SELECT movies.idmovies, title, year, array_agg(DISTINCT name) as "series name", array_agg(DISTINCT genre) as "genre labels", array_agg(DISTINCT keyword) as "keywords" FROM movies LEFT JOIN series on movies.idmovies = series.idmovies LEFT JOIN movies_genres on movies.idmovies = movies_genres.idmovies LEFT JOIN genres on movies_genres.idgenres = genres.idgenres LEFT JOIN movies_keywords on movies.idmovies = movies_keywords.idmovies LEFT JOIN keywords on movies_keywords.idkeywords = keywords.idkeywords WHERE type = 3 AND year = '.$year.'AND title ILIKE'.$query.' GROUP BY movies.idmovies');
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-			   			//For each movie find the actors information and add that to the array
-			   			for($i=0; $i<count($results); $i++)
+			   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT idmovies, title, year, keywords FROM sc1_a_table WHERe title = '".$query."' AND year = ".$year." allow filtering"));
+			   			$result2 = $session->execute(new Cassandra\SimpleStatement("SELECT idmovies, title, year, genres FROM sc1_b_table WHERE title = '".$query."' AND year = ".$year." allow filtering"));
+			   			$results = [];
+			   			//$i = 0;
+			   			foreach($result as $row)
 			   			{
-			   				$idmovie = $results[$i]['idmovies'];
-			   				$stmt2 = $db->query('SELECT fname, lname, gender, character, billing_position FROM actors LEFT JOIN acted_in on acted_in.idactors = actors.idactors WHERE idmovies = '.$idmovie.' ORDER BY billing_position');
-			   				$actors = $stmt2->fetchAll(PDO::FETCH_ASSOC);
-			   				$results[$i]['actors'] = $actors; 
+			   				$results[0]['idmovies'] = $row['idmovies'];
+			   				$results[0]['title'] = $row['title'];
+			   				$results[0]['year'] = $row['year'];
+			   				$results[0]['keywords'] = $row['keywords'];
+			   				break;
 			   			}
-			   			
+			   			foreach($result2 as $row)
+			   			{
+			   				$results[0]['genres'] = $row['genres'];
+			   				break;
+			   			}
+			   						   			
 			   			//Print json format of the data in a nice way on the webpage
 			   			header('Content-Type: application/json');
 			   			echo json_encode($results, JSON_PRETTY_PRINT);
