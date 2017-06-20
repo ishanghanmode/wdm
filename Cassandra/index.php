@@ -183,28 +183,54 @@
 			   			//If two names are given, use the first one as fname and the last one as lname
 			   			if(count($splitquery) == 2)
 			   			{
-							$stmt = $db->query("SELECT fname, lname, gender, idactors FROM actors WHERE (lname ILIKE '%".$splitquery[1]."%' AND fname ILIKE '%".$splitquery[0]."%')");
+							$result = $session->execute(new Cassandra\SimpleStatement("SELECT fname, lname, gender from sc2_table where lname = '".$splitquery[1]."' AND fname = '".$splitquery[0]."' allow filtering"));
+				   			$results = [];
+				   			$i = 0;
+				   			foreach($result as $row)
+				   			{
+				   				$results[0]['fname'] = $row['fname'];
+				   				$results[0]['lname'] = $row['lname'];
+				   				$results[0]['gender'] = $row['gender'];
+				   				break;
+				   			}
+				   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT title, year from sc2_table where lname = '".$splitquery[1]."' AND fname = '".$splitquery[0]."' allow filtering"));
+				   			foreach($result as $row)
+				   			{
+				   				$results[0]['movies'][$i]['title'] = $row['title'];
+				   				$results[0]['movies'][$i]['year'] = $row['year'];
+				   				$i++;
+				   			}
+
+				   			//Print json format of the data in a nice way on the webpage
+				   			header('Content-Type: application/json');
+				   			echo json_encode($results, JSON_PRETTY_PRINT);
 			   			}
 			   			//If less or more then 2 names are given, use them for both fname and lname
 			   			else
 			   			{
-			   				$stmt = $db->query("SELECT fname, lname, gender, idactors FROM actors WHERE (lname ILIKE '%".$query."%' OR fname ILIKE '%".$query."%')");	
-			   			}
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-			   			//For each actor find the movies information and add that to the array
-			   			for($i=0; $i<count($results); $i++)
-			   			{
-			   				$idactor = $results[$i]['idactors'];
-			   				$stmt2 = $db->query('SELECT DISTINCT title, year FROM acted_in, movies WHERE idactors = '.$idactor.'AND type = 3 AND movies.idmovies = acted_in.idmovies ORDER BY year');
-			   				$movies = $stmt2->fetchAll(PDO::FETCH_ASSOC);
-			   				$results[$i]['movies'] = $movies;
-			   				//Remove idactors from result
-			   				unset($results[$i]['idactors']); 
-			   			}
+			   				$result = $session->execute(new Cassandra\SimpleStatement("SELECT fname, lname, gender from sc2_table where lname = '".$query."' allow filtering"));
+				   			$results = [];
+				   			$i = 0;
+				   			foreach($result as $row)
+				   			{
+				   				$results[0]['fname'] = $row['fname'];
+				   				$results[0]['lname'] = $row['lname'];
+				   				$results[0]['gender'] = $row['gender'];
+				   				break;
+				   			}
+				   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT title, year from sc2_table where lanme = '".$query."' allow filtering"));
+				   			foreach($result as $row)
+				   			{
+				   				$results[0]['movies'][$i]['title'] = $row['title'];
+				   				$results[0]['movies'][$i]['year'] = $row['year'];
+				   				$i++;
+				   			}
+
+				   			//Print json format of the data in a nice way on the webpage
+				   			header('Content-Type: application/json');
+				   			echo json_encode($results, JSON_PRETTY_PRINT);	
+				   		}
 			   			
-			   			//Print json format of the data in a nice way on the webpage
-			   			header('Content-Type: application/json');
-			   			echo json_encode($results, JSON_PRETTY_PRINT);
 			   		}
 			   	}
 			   	//Get short statistics for actors
@@ -236,13 +262,13 @@
 			   			$columnname = '"number of movies"';
 			   			$splitquery = explode(" ", $query);
 			   			//If two names are given, use the first one as fname and the last one as lname
-			   			if(count($splitquery) == 2)
+			   			/*if(count($splitquery) == 2)
 			   			{
 			   				$stmt = $db->query("SELECT fname, lname, COUNT(DISTINCT acted_in.idmovies) as ".$columnname." FROM actors, acted_in, movies WHERE actors.idactors = acted_in.idactors AND (lname ILIKE '%".$splitquery[1]."%' AND fname ILIKE '%".$splitquery[0]."%') AND acted_in.idmovies = movies.idmovies AND type = 3 GROUP BY fname, lname");
 			   			}
 			   			//If less or more then 2 names are given, use them for both fname and lname
 			   			else
-			   			{
+			   			{*/
 			   				//$result = $session->execute(new Cassandra\SimpleStatement("SELECT fname, lname, ".$columnname." from sc3_table where fname = '".$query."' allow filtering"));
 			   				$result2 = $session->execute(new Cassandra\SimpleStatement("SELECT fname, lname, ".$columnname." from sc3_table where lname = '".$query."' allow filtering"));
 				   			$results = [];
@@ -263,7 +289,7 @@
 				   				//echo $row['number of movies'];
 				   				$i++;
 				   			}
-			   			}
+			   			//}
 			   			
 			   			//Print json format of the data in a nice way on the webpage
 			   			header('Content-Type: application/json');
