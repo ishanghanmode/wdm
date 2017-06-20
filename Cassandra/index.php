@@ -5,7 +5,7 @@
 	</head>
 	<body>
 		<?php
-   			$error = false;
+			$error = false;
 			//Get http method
 			$method = $_SERVER['REQUEST_METHOD'];
 			//Get url
@@ -57,7 +57,7 @@
 				// Connect to Cassandra db
 				$cluster  = Cassandra::cluster()
 				                ->build();
-				$keyspace  = 'IMDB';
+				$keyspace  = 'imdb';
 				$session  = $cluster->connect($keyspace);
 
 				if(!$session) {
@@ -65,7 +65,7 @@
 			   	} else {
 			      	//echo "Opened database successfully\n";
 			   	}
-			   	
+
 			   	//Search for movies
 			   	if($object == "movies")
 			   	{
@@ -134,14 +134,23 @@
 			   		//Get a actor by id, returns first name, last name, gender, movies title, movies year
 			   		if(is_numeric($query))
 			   		{
-			   			//Get the actor information
-			   			$stmt = $db->query('SELECT fname, lname, gender FROM actors WHERE actors.idactors = '.$query);
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-						//Get the movies information that the actor played in
-						$stmt2 = $db->query('SELECT DISTINCT title, year FROM acted_in, movies WHERE idactors = '.$query.'AND type = 3 AND movies.idmovies = acted_in.idmovies ORDER BY year');
-			   			$results2 = $stmt2->fetchAll(PDO::FETCH_ASSOC);
-			   			//Add the movies information to the results array
-			   			$results[0]['movies'] = $results2; 
+			   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT fname, lname, gender from sc2_table where idactors = ".$query." allow filtering"));
+			   			$results = [];
+			   			$i = 0;
+			   			foreach($result as $row)
+			   			{
+			   				$results[0]['fname'] = $row['fname'];
+			   				$results[0]['lname'] = $row['lname'];
+			   				$results[0]['gender'] = $row['gender'];
+			   				break;
+			   			}
+			   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT title, year from sc2_table where idactors = ".$query." allow filtering"));
+			   			foreach($result as $row)
+			   			{
+			   				$results[0]['movies'][$i]['title'] = $row['title'];
+			   				$results[0]['movies'][$i]['year'] = $row['year'];
+			   				$i++;
+			   			}
 
 			   			//Print json format of the data in a nice way on the webpage
 			   			header('Content-Type: application/json');
@@ -182,12 +191,21 @@
 			   	//Get short statistics for actors
 			   	else if($object == "actorstatistics")
 			   	{
+			   		$columnname = '"number of movies"';
 			   		//Get number of movies played for a actor by id, returns first name, last name, number of movies played
 			   		if(is_numeric($query))
 			   		{
-			   			$stmt = $db->query('SELECT fname, lname, COUNT(DISTINCT acted_in.idmovies) as "number of movies" FROM actors, acted_in, movies WHERE actors.idactors = acted_in.idactors AND actors.idactors = '.$query.' AND acted_in.idmovies = movies.idmovies AND type = 3 GROUP BY fname, lname');
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-			   			
+			   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT fname, lname, ".$columnname." from sc3_table where idactors = ".$query." allow filtering"));
+			   			$results = [];
+			   			$i = 0;
+			   			foreach($result as $row)
+			   			{
+			   				$results[$i]['fname'] = $row['fname'];
+			   				$results[$i]['lname'] = $row['lname'];
+			   				$results[$i]['number of movies'] = $row['number of movies'];
+			   				$i++;
+			   			}
+
 			   			//Print json format of the data in a nice way on the webpage
 			   			header('Content-Type: application/json');
 			   			echo json_encode($results, JSON_PRETTY_PRINT);
@@ -206,9 +224,27 @@
 			   			//If less or more then 2 names are given, use them for both fname and lname
 			   			else
 			   			{
-			   				$stmt = $db->query("SELECT fname, lname, COUNT(DISTINCT acted_in.idmovies) as ".$columnname." FROM actors, acted_in, movies WHERE actors.idactors = acted_in.idactors AND (lname ILIKE '%".$query."%' OR fname ILIKE '%".$query."%') AND acted_in.idmovies = movies.idmovies AND type = 3 GROUP BY fname, lname");
+			   				//$result = $session->execute(new Cassandra\SimpleStatement("SELECT fname, lname, ".$columnname." from sc3_table where fname = '".$query."' allow filtering"));
+			   				$result2 = $session->execute(new Cassandra\SimpleStatement("SELECT fname, lname, ".$columnname." from sc3_table where lname = '".$query."' allow filtering"));
+				   			$results = [];
+				   			$i = 0;
+				   			/*foreach($result as $row)
+				   			{
+				   				$results[$i]['fname'] = $row['fname'];
+				   				$results[$i]['lname'] = $row['lname'];
+				   				$results[$i]['number of movies'] = $row['number of movies'];
+				   				//echo $row['number of movies'];
+				   				$i++;
+				   			}*/
+				   			foreach($result2 as $row)
+				   			{
+				   				$results[$i]['fname'] = $row['fname'];
+				   				$results[$i]['lname'] = $row['lname'];
+				   				$results[$i]['number of movies'] = $row['number of movies'];
+				   				//echo $row['number of movies'];
+				   				$i++;
+				   			}
 			   			}
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 			   			
 			   			//Print json format of the data in a nice way on the webpage
 			   			header('Content-Type: application/json');
@@ -226,9 +262,17 @@
 			   			$yeararray = explode("-", $year);
 			   			$beginyear = $yeararray[0]; 
 			   			$endyear = $yeararray[1];
-			   			$stmt = $db->query("SELECT movies.idmovies, title, year FROM movies, genres, movies_genres WHERE genres.idgenres = movies_genres.idgenres AND movies_genres.idmovies = movies.idmovies AND type = 3 AND genre = '".$query."' AND year >= ".$beginyear." AND year <= ".$endyear." ORDER BY year, title");
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-			   			
+			   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT idmovies, title, year FROM sc4_table WHERE year >= ".$beginyear." AND year <= ".$endyear." AND genre = '".$query."' allow filtering"));
+			   			$results = [];
+			   			$i = 0;
+			   			foreach($result as $row)
+			   			{
+			   				$results[$i]['idmovies'] = $row['idmovies'];
+			   				$results[$i]['title'] = $row['title'];
+			   				$results[$i]['year'] = $row['year'];
+			   				$i++;
+			   			}
+			   						   			
 			   			//Print json format of the data in a nice way on the webpage
 			   			header('Content-Type: application/json');
 			   			echo json_encode($results, JSON_PRETTY_PRINT);
@@ -236,9 +280,16 @@
 			   		//Get all movies with actors given a genre and a year
 			   		else
 			   		{
-			   			$stmt = $db->query("SELECT movies.idmovies, title, year FROM movies, genres, movies_genres WHERE genres.idgenres = movies_genres.idgenres AND movies_genres.idmovies = movies.idmovies AND type = 3 AND genre = '".$query."' AND year = ".$year." ORDER BY year, title");
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-			   			
+			   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT idmovies, title, year FROM sc4_table WHERE year = ".$year." AND genre = '".$query."' allow filtering"));
+			   			$results = [];
+			   			$i = 0;
+			   			foreach($result as $row)
+			   			{
+			   				$results[$i]['idmovies'] = $row['idmovies'];
+			   				$results[$i]['title'] = $row['title'];
+			   				$results[$i]['year'] = $row['year'];
+			   				$i++;
+			   			}
 			   			//Print json format of the data in a nice way on the webpage
 			   			header('Content-Type: application/json');
 			   			echo json_encode($results, JSON_PRETTY_PRINT);
@@ -248,29 +299,20 @@
 			   	else if($object == "genrestatistics")
 			   	{
 			   		$columnname = '"number of movies"';
-			   		//Get all movies with actors given a genre and a begin and end year
-			   		if (strpos($query, "-")) 
-			   		{
-			   			$yeararray = explode("-", $query);
-			   			$beginyear = $yeararray[0]; 
-			   			$endyear = $yeararray[1];
-			   			$stmt = $db->query("SELECT genre, COUNT(movies_genres.idmovies) as ".$columnname." FROM genres, movies_genres, movies WHERE genres.idgenres = movies_genres.idgenres AND movies_genres.idmovies = movies.idmovies AND type = 3 AND year >= ".$beginyear." AND year <= ".$endyear." GROUP BY genre");
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-			   			
-			   			//Print json format of the data in a nice way on the webpage
-			   			header('Content-Type: application/json');
-			   			echo json_encode($results, JSON_PRETTY_PRINT);
-			   		}
 			   		//Get all movies with actors given a genre and a year
-			   		else
-			   		{
-			   			$stmt = $db->query("SELECT genre, COUNT(movies_genres.idmovies) as ".$columnname." FROM genres, movies_genres, movies WHERE genres.idgenres = movies_genres.idgenres AND movies_genres.idmovies = movies.idmovies AND type = 3 AND year = ".$query." GROUP BY genre");
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-			   			
-			   			//Print json format of the data in a nice way on the webpage
-			   			header('Content-Type: application/json');
-			   			echo json_encode($results, JSON_PRETTY_PRINT);
-			   		}
+			   		$result = $session->execute(new Cassandra\SimpleStatement("SELECT genre, ".$columnname." from sc5_table where year = ".$query." allow filtering"));
+		   			$results = [];
+		   			$i = 0;
+		   			foreach($result as $row)
+		   			{
+		   				$results[$i]['genre'] = $row['genre'];
+		   				$results[$i]['number of movies'] = $row['number of movies'];
+		   				$i++;
+		   			}
+		   						   			
+		   			//Print json format of the data in a nice way on the webpage
+		   			header('Content-Type: application/json');
+		   			echo json_encode($results, JSON_PRETTY_PRINT);
 			   	}
 			}
 		?>
