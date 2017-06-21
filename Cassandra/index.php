@@ -72,8 +72,8 @@
 			   		//Get a movie by id
 			   		if(is_numeric($query))
 			   		{
-			   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT idmovies, title, year, keywords from sc1_a_table where idmovies = ".$query." allow filtering"));
-			   			$result2 = $session->execute(new Cassandra\SimpleStatement("SELECT idmovies, title, year, genres from sc1_b_table where idmovies = ".$query." allow filtering"));
+			   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT idmovies, title, year, keywords FROM sc1_a_table WHERE idmovies = ".$query." allow filtering"));
+			   			$result2 = $session->execute(new Cassandra\SimpleStatement("SELECT idmovies, title, year, genres FROM sc1_b_table WHERE idmovies = ".$query." allow filtering"));
 			   			$results = [];
 			   			//$i = 0;
 			   			foreach($result as $row)
@@ -153,7 +153,7 @@
 			   		//Get a actor by id, returns first name, last name, gender, movies title, movies year
 			   		if(is_numeric($query))
 			   		{
-			   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT fname, lname, gender from sc2_table where idactors = ".$query." allow filtering"));
+			   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT fname, lname, gender FROM sc2_table WHERE idactors = ".$query." allow filtering"));
 			   			$results = [];
 			   			$i = 0;
 			   			foreach($result as $row)
@@ -163,7 +163,7 @@
 			   				$results[0]['gender'] = $row['gender'];
 			   				break;
 			   			}
-			   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT title, year from sc2_table where idactors = ".$query." allow filtering"));
+			   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT title, year FROM sc2_table WHERE idactors = ".$query." allow filtering"));
 			   			foreach($result as $row)
 			   			{
 			   				$results[0]['movies'][$i]['title'] = $row['title'];
@@ -183,7 +183,7 @@
 			   			//If two names are given, use the first one as fname and the last one as lname
 			   			if(count($splitquery) == 2)
 			   			{
-							$result = $session->execute(new Cassandra\SimpleStatement("SELECT fname, lname, gender from sc2_table where lname = '".$splitquery[1]."' AND fname = '".$splitquery[0]."' allow filtering"));
+							$result = $session->execute(new Cassandra\SimpleStatement("SELECT fname, lname, gender FROM sc2_table WHERE lname = '".$splitquery[1]."' AND fname = '".$splitquery[0]."' allow filtering"));
 				   			$results = [];
 				   			$i = 0;
 				   			foreach($result as $row)
@@ -193,7 +193,7 @@
 				   				$results[0]['gender'] = $row['gender'];
 				   				break;
 				   			}
-				   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT title, year from sc2_table where lname = '".$splitquery[1]."' AND fname = '".$splitquery[0]."' allow filtering"));
+				   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT title, year FROM sc2_table WHERE lname = '".$splitquery[1]."' AND fname = '".$splitquery[0]."' allow filtering"));
 				   			foreach($result as $row)
 				   			{
 				   				$results[0]['movies'][$i]['title'] = $row['title'];
@@ -208,7 +208,7 @@
 			   			//If less or more then 2 names are given, use them for both fname and lname
 			   			else
 			   			{
-			   				$result = $session->execute(new Cassandra\SimpleStatement("SELECT fname, lname, gender from sc2_table where lname = '".$query."' allow filtering"));
+			   				$result = $session->execute(new Cassandra\SimpleStatement("SELECT fname, lname, gender FROM sc2_table WHERE lname = '".$query."' allow filtering"));
 				   			$results = [];
 				   			$i = 0;
 				   			foreach($result as $row)
@@ -218,7 +218,7 @@
 				   				$results[0]['gender'] = $row['gender'];
 				   				break;
 				   			}
-				   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT title, year from sc2_table where lanme = '".$query."' allow filtering"));
+				   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT title, year FROM sc2_table WHERE lanme = '".$query."' allow filtering"));
 				   			foreach($result as $row)
 				   			{
 				   				$results[0]['movies'][$i]['title'] = $row['title'];
@@ -240,7 +240,7 @@
 			   		//Get number of movies played for a actor by id, returns first name, last name, number of movies played
 			   		if(is_numeric($query))
 			   		{
-			   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT fname, lname, ".$columnname." from sc3_table where idactors = ".$query." allow filtering"));
+			   			$result = $session->execute(new Cassandra\SimpleStatement("SELECT fname, lname, ".$columnname." FROM sc3_table where idactors = ".$query." allow filtering"));
 			   			$results = [];
 			   			$i = 0;
 			   			foreach($result as $row)
@@ -270,7 +270,7 @@
 			   			else
 			   			{*/
 			   				//$result = $session->execute(new Cassandra\SimpleStatement("SELECT fname, lname, ".$columnname." from sc3_table where fname = '".$query."' allow filtering"));
-			   				$result2 = $session->execute(new Cassandra\SimpleStatement("SELECT fname, lname, ".$columnname." from sc3_table where lname = '".$query."' allow filtering"));
+			   				$result2 = $session->execute(new Cassandra\SimpleStatement("SELECT fname, lname, ".$columnname." FROM sc3_table where lname = '".$query."' allow filtering"));
 				   			$results = [];
 				   			$i = 0;
 				   			/*foreach($result as $row)
@@ -345,7 +345,7 @@
 			   	{
 			   		$columnname = '"number of movies"';
 			   		//Get all movies with actors given a genre and a year
-			   		$result = $session->execute(new Cassandra\SimpleStatement("SELECT genre, ".$columnname." from sc5_table where year = ".$query." allow filtering"));
+			   		$result = $session->execute(new Cassandra\SimpleStatement("SELECT genre, ".$columnname." FROM sc5_table WHERE year = ".$query." allow filtering"));
 		   			$results = [];
 		   			$i = 0;
 		   			foreach($result as $row)
