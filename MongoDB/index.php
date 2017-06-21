@@ -168,7 +168,7 @@
 						        '$match' => array("idactors"=>intval($query)),  
 						    ),  
 						    array(  
-						        '$project' => array( 'count' =>array('$size'=>array('$movies')), 'Actor name'=>array('$concat'=>array('$fname',' ','$lname')))
+						        '$project' => array('Actor name'=>array('$concat'=>array('$fname',' ','$lname')), 'number of movies' =>array('$size'=>array('$ifNull'=>array('$movies',[]))))
 						          
 						        )
 						    )
