@@ -75,13 +75,11 @@
 			   		//Get a movie by id
 			   		if(is_numeric($query))
 			   		{
-			   			//$result = $collection->find(array('idmovies' => 1));
-					   	$result = $collection->find(array('idmovies'=>intval($query),'type'=>3));
-					   	//echo $result;
-
-						
+			   			$result = $collection->find(array('idmovies'=>intval($query),'type'=>3));
+					   							
 						header('Content-Type: application/json');
 						foreach ($result as $id => $value) {  
+		 					unset($value['_id']);
 		 					echo json_encode($value, JSON_PRETTY_PRINT);  
 						}
 			   		}
@@ -95,6 +93,7 @@
 			   			
 			   			header('Content-Type: application/json');
 			   			foreach ($result as $id => $value) {  
+		 					unset($value['_id']);
 		 					echo json_encode($value, JSON_PRETTY_PRINT);  
 						}
 			   			
@@ -109,6 +108,7 @@
 			   			
 			   			header('Content-Type: application/json');
 			   			foreach ($result as $id => $value) {  
+		 					unset($value['_id']);
 		 					echo json_encode($value, JSON_PRETTY_PRINT);  
 						}
 			   		}
@@ -123,6 +123,7 @@
 			   			$result = $collection->find(array("idactors"=>intval($query)));
 			   			header('Content-Type: application/json');
 			   			foreach ($result as $id => $value) {  
+		 					unset($value['_id']);
 		 					echo json_encode($value, JSON_PRETTY_PRINT);  
 						}
 			   		}
@@ -138,6 +139,7 @@
 							$result = $collection->find($param);
 							header('Content-Type: application/json');
 				   			foreach ($result as $id => $value) {  
+			 					unset($value['_id']);
 			 					echo json_encode($value, JSON_PRETTY_PRINT);  
 							}	
 			   			}
@@ -148,6 +150,7 @@
 							$result = $collection->find($param);
 							header('Content-Type: application/json');
 				   			foreach ($result as $id => $value) {  
+			 					unset($value['_id']);
 			 					echo json_encode($value, JSON_PRETTY_PRINT);  
 							}	
 			   			}
@@ -165,14 +168,16 @@
 						        '$match' => array("idactors"=>intval($query)),  
 						    ),  
 						    array(  
-						        '$project' => array( 'count' =>array('$size'=>array('$movies'))
+						        '$project' => array( 'count' =>array('$size'=>array('$movies')), 'Actor name'=>array('$concat'=>array('$fname',' ','$lname')))
 						          
 						        )
-						    ) 
-						); 
+						    )
+						; 
 						$result = $collection->aggregate($cond);
+
 			   			header('Content-Type: application/json');
-			   			foreach ($result as $id => $value) {  
+			   			foreach ($result as $id => $value) {
+			   				unset($value['_id']);  
 		 					echo json_encode($value, JSON_PRETTY_PRINT);  
 						}	
 			   		}
@@ -185,18 +190,18 @@
 			   			if(count($splitquery) == 2)
 			   			{
 			   				$cond = array(  
-							    array(  
-							        '$match' =>  array('$and'=>array(array("lname" => new MongoDB\BSON\Regex($splitquery[1])),array("fname" => new MongoDB\BSON\Regex($splitquery[0])))),  
-							    ),  
-							    array(  
-							         '$project' => array( 'count' =>array('$size'=>array('ifNull'=>array('$movies',[])))
-							          
-							        )
-							    ) 
-							); 
+						    array(  
+						        '$match' => array('$and'=>array(array("lname" => new MongoDB\BSON\Regex($splitquery[1])),array("fname" => new MongoDB\BSON\Regex($splitquery[0]))))  
+						    ),  
+						    array(  
+						        '$project' => array('Actor name'=>array('$concat'=>array('$fname',' ','$lname')), 'number of movies' =>array('$size'=>array('$ifNull'=>array('$movies',[]))))
+						          
+						        )
+						    );							
 							$result = $collection->aggregate($cond);
 				   			header('Content-Type: application/json');
 				   			foreach ($result as $id => $value) {  
+			 					unset($value['_id']);
 			 					echo json_encode($value, JSON_PRETTY_PRINT);  
 							}
 			   			}
@@ -204,18 +209,18 @@
 			   			else
 			   			{
 			   				$cond = array(  
-							    array(  
-							        '$match' =>  array('$or'=>array(array("lname" => new MongoDB\BSON\Regex($query)),array("fname" => new MongoDB\BSON\Regex($query)))),  
-							    ),  
-							    array(  
-							          '$project' => array( 'count' =>array('$size'=>array('ifNull'=>array('$movies',false))))
-							          
-							        )
-							     
-							); 
+						    array(  
+						        '$match' => array('$or'=>array(array("lname" => new MongoDB\BSON\Regex($query)),array("fname" => new MongoDB\BSON\Regex($query))))  
+						    ),  
+						    array(  
+						        '$project' => array('Actor name'=>array('$concat'=>array('$fname',' ','$lname')), 'number of movies' =>array('$size'=>array('$ifNull'=>array('$movies',[]))))
+						          
+						        )
+						    );							
 							$result = $collection->aggregate($cond);
 				   			header('Content-Type: application/json');
 				   			foreach ($result as $id => $value) {  
+			 					unset($value['_id']);
 			 					echo json_encode($value, JSON_PRETTY_PRINT);  
 							}
 			   			}
@@ -233,31 +238,60 @@
 			   			$yeararray = explode("-", $year);
 			   			$beginyear = $yeararray[0]; 
 			   			$endyear = $yeararray[1];
-			   			$stmt = $db->query("SELECT movies.idmovies, title, year FROM movies, genres, movies_genres WHERE genres.idgenres = movies_genres.idgenres AND movies_genres.idmovies = movies.idmovies AND type = 3 AND genre = '".$query."' AND year >= ".$beginyear." AND year <= ".$endyear." ORDER BY year, title");
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-			   			
-			   			//Print json format of the data in a nice way on the webpage
+			   			$param = array('$and'=>array(array("genres" => new MongoDB\BSON\Regex($query)),array('year'=>array('$exists'=>true,'$gte'=>intval($beginyear),'$lte'=>intval($endyear)))));  
+						$result = $collection->find($param);
+
+						//Print json format of the data in a nice way on the webpage
 			   			header('Content-Type: application/json');
-			   			echo json_encode($results, JSON_PRETTY_PRINT);
+			   			foreach ($result as $id => $value) {  
+		 					if(array_key_exists('_id', $value)){
+		 						unset($value['_id']);
+		 					}
+		 					if(array_key_exists('keyword', $value)){
+		 						unset($value['keyword']);
+		 					}
+		 					if(array_key_exists('actors', $value)){
+		 						unset($value['actors']);
+		 					}
+		 					if(array_key_exists('series_name', $value)){
+		 						unset($value['series_name']);
+		 					}
+		 					if(array_key_exists('type', $value)){
+		 						unset($value['type']);
+		 					}
+		 					if(array_key_exists('genres', $value)){
+		 						unset($value['genres']);
+		 					}
+		 					echo json_encode($value, JSON_PRETTY_PRINT);  
+						}
 			   		}
 			   		//Get all movies with actors given a genre and a year
 			   		else
 			   		{
-			   			$cond = array(  
-						    array(  
-						        '$match' => array("genre" => new MongoDB\BSON\Regex($query),'year'=>array('$exists'=>true,'$gte'=>intval($year),'$lte'=>intval($year)))  
-						    ),  
-						    array(  
-						        '$project' => array("_id"=>0,"keyword" =>0,"actors" =>0,"series_name" =>0,"type" =>0,"genres" =>0)
-						          
-						        ),
-						array('$sort'=>array("year"=>1,"title"=>1))
-						    
-						);                        
-						$result = $collection->aggregate($cond);
+			   			$param = array('$and'=>array(array("genres" => new MongoDB\BSON\Regex($query)),array('year'=>array('$exists'=>true,'$gte'=>intval($year),'$lte'=>intval($year)))));  
+						$result = $collection->find($param);
+
 						//Print json format of the data in a nice way on the webpage
 			   			header('Content-Type: application/json');
 			   			foreach ($result as $id => $value) {  
+		 					if(array_key_exists('_id', $value)){
+		 						unset($value['_id']);
+		 					}
+		 					if(array_key_exists('keyword', $value)){
+		 						unset($value['keyword']);
+		 					}
+		 					if(array_key_exists('actors', $value)){
+		 						unset($value['actors']);
+		 					}
+		 					if(array_key_exists('series_name', $value)){
+		 						unset($value['series_name']);
+		 					}
+		 					if(array_key_exists('type', $value)){
+		 						unset($value['type']);
+		 					}
+		 					if(array_key_exists('genres', $value)){
+		 						unset($value['genres']);
+		 					}
 		 					echo json_encode($value, JSON_PRETTY_PRINT);  
 						}
 			   		}
@@ -265,29 +299,41 @@
 			   	//Get genre statistics
 			   	else if($object == "genrestatistics")
 			   	{
-			   		$columnname = '"number of movies"';
+			   		$collection = $db->genre;
 			   		//Get all movies with actors given a genre and a begin and end year
 			   		if (strpos($query, "-")) 
 			   		{
 			   			$yeararray = explode("-", $query);
 			   			$beginyear = $yeararray[0]; 
 			   			$endyear = $yeararray[1];
-			   			$stmt = $db->query("SELECT genre, COUNT(movies_genres.idmovies) as ".$columnname." FROM genres, movies_genres, movies WHERE genres.idgenres = movies_genres.idgenres AND movies_genres.idmovies = movies.idmovies AND type = 3 AND year >= ".$beginyear." AND year <= ".$endyear." GROUP BY genre");
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+			   			$where = array(array('$match'=>array('year'=>array('$exists'=>true,'$gte'=>intval($beginyear),'$lte'=>intval($endyear)))),array('$group'=>array('_id'=>'$genre','sum'=>array('$sum'=>'$number of movies'))));  
+						$result = $collection->aggregate($where);
 			   			
 			   			//Print json format of the data in a nice way on the webpage
 			   			header('Content-Type: application/json');
-			   			echo json_encode($results, JSON_PRETTY_PRINT);
+			   			foreach ($result as $id => $value) {  
+		 					$value['genre'] = $value['_id'];
+		 					unset($value['_id']);
+		 					$value['number of movies'] = $value['sum'];
+		 					unset($value['sum']);
+		 					echo json_encode($value, JSON_PRETTY_PRINT);  
+						}
 			   		}
 			   		//Get all movies with actors given a genre and a year
 			   		else
 			   		{
-			   			$stmt = $db->query("SELECT genre, COUNT(movies_genres.idmovies) as ".$columnname." FROM genres, movies_genres, movies WHERE genres.idgenres = movies_genres.idgenres AND movies_genres.idmovies = movies.idmovies AND type = 3 AND year = ".$query." GROUP BY genre");
-			   			$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+			   			$where = array(array('$match'=>array('year'=>array('$exists'=>true,'$gte'=>intval($query),'$lte'=>intval($query)))),array('$group'=>array('_id'=>'$genre','sum'=>array('$sum'=>'$number of movies'))));  
+						$result = $collection->aggregate($where);
 			   			
 			   			//Print json format of the data in a nice way on the webpage
 			   			header('Content-Type: application/json');
-			   			echo json_encode($results, JSON_PRETTY_PRINT);
+			   			foreach ($result as $id => $value) {  
+		 					$value['genre'] = $value['_id'];
+		 					unset($value['_id']);
+		 					$value['number of movies'] = $value['sum'];
+		 					unset($value['sum']);
+		 					echo json_encode($value, JSON_PRETTY_PRINT);  
+						}
 			   		}
 			   	}
 			}			
